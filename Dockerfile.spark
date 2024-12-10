@@ -1,0 +1,31 @@
+FROM bitnami/spark:2.4.6
+
+# Устанавливаем curl для загрузки JAR-файлов
+USER root
+RUN apt-get update && apt-get install -y \
+    curl \
+    python3-pip \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Добавляем JAR-файлы для интеграции с Kafka
+RUN mkdir -p /opt/bitnami/spark/jars && \
+    curl -o /opt/bitnami/spark/jars/spark-sql-kafka-0-10_2.11-2.4.6.jar \
+        https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.11/2.4.6/spark-sql-kafka-0-10_2.11-2.4.6.jar && \
+    curl -o /opt/bitnami/spark/jars/kafka-clients-2.3.0.jar \
+        https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/2.3.0/kafka-clients-2.3.0.jar
+
+# Устанавливаем Jupyter и зависимости для Python
+RUN pip3 install --upgrade pip
+RUN pip3 install jupyter findspark kafka-python pyspark
+
+# # Создаем папку для хранения данных Jupyter
+# RUN mkdir -p /opt/bitnami/jupyter_data && \
+# chown -R 1001:1001 /opt/bitnami/jupyter_data
+
+# Создаем папку для хранения данных Jupyter
+RUN mkdir -p /opt/bitnami/jupyter_data
+
+# Устанавливаем переменные окружения для Jupyter
+ENV JUPYTER_RUNTIME_DIR=/opt/bitnami/jupyter_data
+ENV JUPYTER_NOTEBOOK_DIR=/opt/bitnami/jupyter_data
