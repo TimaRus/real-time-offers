@@ -102,6 +102,9 @@ services:
       - SPARK_WORKER_CORES=1
     ports:
       - "8079:8081"  # Spark Worker UI
+    volumes:
+      - ./docker_data/jupyter_notebooks:/home/jovyan/work
+      - ./docker_data/jupyter_data:/opt/bitnami/jupyter_data
     networks:
       - kafka-net
     depends_on:
