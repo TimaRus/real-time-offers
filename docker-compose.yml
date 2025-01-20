@@ -28,29 +28,6 @@ services:
       - ./docker_data/landoop_data:/data
       - ./datasets:/datasets
 
-  # Elasticsearch sink (optional)
-  #elasticsearch:
-  #  image: itzg/elasticsearch:2.4.3
-  #  environment:
-  #    PLUGINS: appbaseio/dejavu
-  #    OPTS: -Dindex.number_of_shards=1 -Dindex.number_of_replicas=0
-  #  ports:
-  #    - "9200:9200"
-  #  networks:
-  #    - kafka-net
-
-  # Postgres sink (optional)
-  #postgres:
-  #  image: postgres:9.5-alpine
-  #  environment:
-  #    POSTGRES_USER: postgres
-  #    POSTGRES_PASSWORD: postgres
-  #    POSTGRES_DB: postgres
-  #  ports:
-  #    - 5432:5432
-  #  networks:
-  #    - kafka-net
-
   # Custom initialization container
   init-container:
     container_name: init-container
@@ -86,6 +63,7 @@ services:
     volumes:
       - ./docker_data/jupyter_notebooks:/home/jovyan/work
       - ./docker_data/jupyter_data:/opt/bitnami/jupyter_data
+      - ./streaming_pipeline.py:/opt/bitnami/spark/streaming_pipeline.py
     networks:
       - kafka-net
 
@@ -109,3 +87,27 @@ services:
       - kafka-net
     depends_on:
       - spark-master
+
+  # Redis
+  redis:
+    image: redis:7.0-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - kafka-net
+    volumes:
+      - ./docker_data/redis:/data
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]  # Запуск Redis
+
+  # ClickHouse
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.9-alpine
+    container_name: clickhouse
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # Native TCP interface
+    networks:
+      - kafka-net
+    volumes:
+      - ./docker_data/clickhouse:/var/lib/clickhouse

@@ -15,9 +15,9 @@ RUN mkdir -p /opt/bitnami/spark/jars && \
     curl -o /opt/bitnami/spark/jars/kafka-clients-2.3.0.jar \
         https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/2.3.0/kafka-clients-2.3.0.jar
 
-# Устанавливаем Jupyter и зависимости для Python
+# Устанавливаем Jupyter и необходимые зависимости для Python
 RUN pip3 install --upgrade pip
-RUN pip3 install jupyter findspark kafka-python pyspark
+RUN pip3 install jupyter findspark kafka-python pyspark pandas clickhouse_driver redis
 
 # # Создаем папку для хранения данных Jupyter
 # RUN mkdir -p /opt/bitnami/jupyter_data && \
