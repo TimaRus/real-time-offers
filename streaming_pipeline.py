@@ -1,4 +1,4 @@
-from datetime import datetime
+import time
 
 import findspark
 
@@ -12,21 +12,21 @@ import redis
 from clickhouse_driver import Client
 import logging
 
-
 # Настройка уровня логов для Spark
 logger = logging.getLogger("py4j")
 logger.setLevel(logging.WARN)
 
-# Initialize Spark Session
+# Запуск Spark Session
 spark = SparkSession.builder \
     .master("spark://spark-master:7077") \
     .appName("RealTime_Personalized_Tariff") \
     .config("spark.sql.streaming.schemaInference", "true") \
     .getOrCreate()
 
-spark.sparkContext.setLogLevel("WARN")  # Устанавливаем уровень логов для Spark
+# Устанавливаем уровень логов для Spark
+spark.sparkContext.setLogLevel("WARN")
 
-# Load Pre-trained Model
+# Загружаем ML модель
 model_path = "/home/jovyan/work/enhanced_tariff_model"
 pipeline_model = PipelineModel.load(model_path)
 
@@ -42,7 +42,7 @@ raw_stream = spark.readStream \
     .option("maxOffsetsPerTrigger", "1") \
     .load()
 
-# Define Schema for Incoming Data
+# Определяем схему для входящих данных
 outer_schema = StructType([
     StructField("schema", StructType([
         StructField("type", StringType(), True),
@@ -52,7 +52,7 @@ outer_schema = StructType([
 ])
 
 inner_schema = StructType([
-    StructField("id", StringType(), True),
+    StructField("user_id", StringType(), True),
     StructField("ip_country", StringType(), True),
     StructField("device_country", StringType(), True),
     StructField("device_language", StringType(), True),
@@ -70,39 +70,14 @@ parsed_outer = raw_stream.selectExpr("CAST(value AS STRING) as json_value") \
 
 parsed_inner = parsed_outer.select(from_json(col("payload"), inner_schema).alias("payload_data")) \
     .select("payload_data.*") \
-    .withColumn("id", col("id").cast(IntegerType())) \
+    .withColumn("user_id", col("user_id").cast(IntegerType())) \
     .na.drop()
 
-# Apply Pre-trained ML Model
-predictions = pipeline_model.transform(parsed_inner)
+# Применяем ML модель
+tariff_predictions = pipeline_model.transform(parsed_inner)
 
-# Process and Format Predictions
-results = predictions.withColumn(
-    "selected_functions",
-    concat_ws(", ",
-              when(col("predicted_function_map") > 0.5, "10 мест на карте вместо 3").otherwise(None),
-              when(col("predicted_function_ignore_sound") > 0.5, "Игнорирование режима 'без звука'").otherwise(None),
-              when(col("predicted_function_listen_sound") > 0.5, "Послушать звук вокруг ребенка").otherwise(None),
-              when(col("predicted_function_detailed_routes") > 0.5, "Подробная карта маршрутов").otherwise(None),
-              when(col("predicted_function_sos_signal") > 0.5, "Сигнал SOS").otherwise(None),
-              when(col("predicted_function_invite_second_parent") > 0.5, "Приглашение второго родителя").otherwise(None)
-              )
-).withColumn(
-    "tariff_description",
-    when(
-        col("selected_functions").isNull() | (col("selected_functions") == ""),
-        concat(
-            lit("Обязательные функции: Блокировка приложений, Защита от незнакомых звонков, Время в приложениях. Дополнительные функции: "),
-            lit("нет"))
-    ).otherwise(
-        concat(
-            lit("Обязательные функции: Блокировка приложений, Защита от незнакомых звонков, Время в приложениях. Дополнительные функции: "),
-            col("selected_functions"))
-    )
-)
-
-real_time_tariffs = results.select(
-    "id",
+offer_result = tariff_predictions.select(
+    "user_id",
     "predicted_cost",
     "predicted_subscription",
     "predicted_function_map",
@@ -110,40 +85,22 @@ real_time_tariffs = results.select(
     "predicted_function_listen_sound",
     "predicted_function_detailed_routes",
     "predicted_function_sos_signal",
-    "predicted_function_invite_second_parent"#,
-    #"selected_functions",
-    #"tariff_description"
+    "predicted_function_invite_second_parent"
 )
 
-# Redis and ClickHouse Integration
+# Подключения к Redis и ClickHouse
 redis_client = redis.StrictRedis(host='redis', port=6379, decode_responses=True)
 clickhouse_client = Client(host='clickhouse', port=9000)
 
 
-#def write_to_redis(df, batch_id):
-#    try:
-#        data = df.to_dict(orient='records')
-#        for row in data:
-#            # Добавляем текущую временную метку
-#            row['write_time'] = int(time.time())  # Unix timestamp
-#            # Сохраняем данные в Redis
-#            redis_client.set(f"{row['id']}", str(row))
-#        print(f"Batch {batch_id} written to Redis.")
-#    except Exception as e:
-#        print(f"Error writing to Redis: {e}")
-
-from random import random
 def write_to_redis(df, batch_id):
     try:
         data = df.to_dict(orient='records')
         for row in data:
-            # Добавляем текущую временную метку в формате datetime
-            row['write_time'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-            # Генерируем уникальный ключ с префиксом "1010"
-            unique_id = f"{random():.6f}".replace('.', '')  # Убираем точку для уникальности
-            key = f"1010-{unique_id}"
+            # Добавляем текущую временную метку
+            row['inserted_datetime'] = int(time.time())
             # Сохраняем данные в Redis
-            redis_client.set(key, str(row))
+            redis_client.set(f"{row['user_id']}", str(row))
         print(f"Batch {batch_id} written to Redis.")
     except Exception as e:
         print(f"Error writing to Redis: {e}")
@@ -152,7 +109,7 @@ def write_to_redis(df, batch_id):
 def write_to_clickhouse(df, batch_id):
     try:
         data = df.to_dict('records')
-        clickhouse_client.execute('INSERT INTO real_time_tariffs VALUES', data)
+        clickhouse_client.execute('INSERT INTO personal_offer VALUES', data)
         print(f"Batch {batch_id} written to ClickHouse.")
     except Exception as e:
         print(f"Error writing to ClickHouse: {e}")
@@ -170,7 +127,7 @@ def process_and_store(batch_df, batch_id):
         print(f"Error processing batch {batch_id}: {e}")
 
 
-real_time_tariffs.writeStream \
+offer_result.writeStream \
     .foreachBatch(process_and_store) \
     .outputMode("append") \
     .start() \

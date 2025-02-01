@@ -1,6 +1,6 @@
 FROM bitnami/spark:2.4.6
 
-# Устанавливаем curl для загрузки JAR-файлов
+# Устанавливаем библиотеки
 USER root
 RUN apt-get update && apt-get install -y \
     curl \
@@ -18,10 +18,6 @@ RUN mkdir -p /opt/bitnami/spark/jars && \
 # Устанавливаем Jupyter и необходимые зависимости для Python
 RUN pip3 install --upgrade pip
 RUN pip3 install jupyter findspark kafka-python pyspark pandas clickhouse_driver redis
-
-# # Создаем папку для хранения данных Jupyter
-# RUN mkdir -p /opt/bitnami/jupyter_data && \
-# chown -R 1001:1001 /opt/bitnami/jupyter_data
 
 # Создаем папку для хранения данных Jupyter
 RUN mkdir -p /opt/bitnami/jupyter_data

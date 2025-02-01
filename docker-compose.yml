@@ -10,7 +10,7 @@ services:
     image: landoop/fast-data-dev:2.3.2
     container_name: kafka-cluster
     environment:
-      ADV_HOST: kafka-cluster     # Указываем hostname контейнера
+      ADV_HOST: kafka-cluster
       RUNTESTS: 0                 # Disable the (coyote) integration tests from running when container starts
       SAMPLEDATA: 0               # Do not create topics with sample avro and json records
       FORWARDLOGS: 0              # Disable running the file source connector that brings broker logs into a Kafka topic
@@ -58,8 +58,7 @@ services:
       - "7077:7077"  # Spark Master
       - "8080:8080"  # Spark Master UI
       - "8888:8888"  # Jupyter Notebook
-    #command: /bin/bash -c "start-master.sh && jupyter-notebook --allow-root --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.notebook_dir='/home/jovyan/work'"
-    # To start Jupyter Notebook: jupyter-notebook --allow-root --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.notebook_dir='/home/jovyan/work'
+    # Запуск Jupyter Notebook: jupyter-notebook --allow-root --ip=0.0.0.0 --port=8888 --no-browser --NotebookApp.notebook_dir='/home/jovyan/work'
     volumes:
       - ./docker_data/jupyter_notebooks:/home/jovyan/work
       - ./docker_data/jupyter_data:/opt/bitnami/jupyter_data
@@ -98,7 +97,7 @@ services:
       - kafka-net
     volumes:
       - ./docker_data/redis:/data
-    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]  # Запуск Redis
+    command: [ "redis-server", "--save", "60", "1", "--loglevel", "warning" ]  # Run Redis
 
   # ClickHouse
   clickhouse:
