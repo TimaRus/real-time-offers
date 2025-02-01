@@ -40,7 +40,7 @@ def create_record(user_id: int):
                         "is_organic": 0,
                         "child_age": 7,
                         "child_smartphone_brand": "iphone",
-                        "timestamp": timestamp  # добавляем время
+                        "timestamp": timestamp
                     }
                 }
             }
@@ -52,7 +52,7 @@ def send_request(record):
     """Отправка запроса в Kafka."""
     try:
         response = requests.post(KAFKA_URL, headers=HEADERS, data=json.dumps(record))
-        response.raise_for_status()  # Поднимет исключение, если статус не 2xx
+        response.raise_for_status()
         print("[SUCCESS] Record sent: ", record["records"][0]["key"])
     except requests.exceptions.RequestException as e:
         print(f"[ERROR] Failed to send record {record['records'][0]['key']}: {e}")

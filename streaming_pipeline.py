@@ -92,6 +92,21 @@ offer_result = tariff_predictions.select(
 redis_client = redis.StrictRedis(host='redis', port=6379, decode_responses=True)
 clickhouse_client = Client(host='clickhouse', port=9000)
 
+clickhouse_client.execute('''
+CREATE TABLE IF NOT EXISTS personal_offer (
+    user_id UInt32,
+    predicted_cost Float32,
+    predicted_subscription Float32,
+    predicted_function_map Float32,
+    predicted_function_ignore_sound Float32,
+    predicted_function_listen_sound Float32,
+    predicted_function_detailed_routes Float32,
+    predicted_function_sos_signal Float32,
+    predicted_function_invite_second_parent Float32,
+    _inserted_datetime DateTime MATERIALIZED now()
+) ENGINE = MergeTree()
+ORDER BY user_id;
+''')
 
 def write_to_redis(df, batch_id):
     try:
